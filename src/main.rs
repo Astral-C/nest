@@ -32,8 +32,14 @@ fn main() {
 
     while window.is_open() {
 
-        //let mut cycles: u32 = 0;
-        cpu.step(&mut mmu);
+        let mut cycles: u32 = 0;
+        
+        println!("Stepping CPU");
+        while cycles < CYCLES_PER_FRAME {
+            cycles += cpu.step(&mut mmu);
+        }
+        println!("Done");
+        
         // cpu step
         // ppu step
 

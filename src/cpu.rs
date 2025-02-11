@@ -12,8 +12,12 @@ pub struct Cpu {
 impl Cpu {
     pub fn step(&mut self, memory: &mut Mmu) -> u32 {
         let opcode: u8 = memory.read(self.pc);
-        
+
         match opcode {
+            0x01 => {
+                self.a |= memory.read(self.x as u16);
+                6
+            }
             0xEA => 2,
             _ => 2
         }
