@@ -1,10 +1,14 @@
 use minifb::WindowOptions;
 use minifb::Window;
+use std::path::Path;
+
+use crate::nes::{
+    Nes,
+    ppu::SCREEN_WIDTH,
+    ppu::SCREEN_HEIGHT
+};
 
 pub mod nes;
-use crate::nes::Nes;
-use crate::nes::ppu::SCREEN_WIDTH;
-use crate::nes::ppu::SCREEN_HEIGHT;
 
 const FRAMES_PER_SECOND: usize = 60;
 
@@ -21,8 +25,11 @@ fn main() {
 
     let mut nes: Nes = Nes::new();
 
+    let rom_path = Path::new("all_instrs.nes");
+    nes.load_rom(rom_path);
+
     while window.is_open() {
         nes.step();
-        window.update_with_buffer(&nes.ppu.screen_buffer, SCREEN_WIDTH, SCREEN_HEIGHT).unwrap();
+        nes.draw(&mut window);
     };
 }
