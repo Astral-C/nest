@@ -1,16 +1,15 @@
 use minifb::WindowOptions;
 use minifb::Window;
 
-const CYCLES_PER_FRAME: u32 = 29781;
+pub mod nes;
+use crate::nes::Nes;
+use crate::nes::ppu::SCREEN_WIDTH;
+use crate::nes::ppu::SCREEN_HEIGHT;
 
-use crate::mmu::Mmu;
-use crate::cpu::Cpu;
-
-pub mod mmu;
-pub mod cpu;
+const FRAMES_PER_SECOND: usize = 60;
 
 fn main() {
-    let mut window = match Window::new("Nest", 256, 240, WindowOptions::default()) {
+    let mut window = match Window::new("Nest", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions::default()) {
         Ok(win) => win,
         Err(err) => {
             println!("MiniFB Err: {}", err);
@@ -18,31 +17,12 @@ fn main() {
         }
     };
     
-    window.set_target_fps(60);
+    window.set_target_fps(FRAMES_PER_SECOND);
 
-    let mut mmu = Mmu {
-        memory: [0; 0xFFFF]
-    };
-
-    let mut cpu = Cpu {
-        a: 0, x: 0, y: 0, // a, x, y
-        pc: 0, sp: 0, // pc, sp
-        p: 0 // flags
-    };
+    let mut nes: Nes = Nes::new();
 
     while window.is_open() {
-
-        let mut cycles: u32 = 0;
-        
-        println!("Stepping CPU");
-        while cycles < CYCLES_PER_FRAME {
-            cycles += cpu.step(&mut mmu);
-        }
-        println!("Done");
-        
-        // cpu step
-        // ppu step
-
-        window.update();
+        nes.step();
+        window.update_with_buffer(&nes.ppu.screen_buffer, SCREEN_WIDTH, SCREEN_HEIGHT).unwrap();
     };
 }
