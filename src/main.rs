@@ -25,7 +25,7 @@ fn main() {
 
     let mut nes: Nes = Nes::new();
 
-    let rom_path = Path::new("all_instrs.nes");
+    let rom_path = Path::new("test_roms/all_instrs.nes");
     nes.load_rom(rom_path);
 
     while window.is_open() {
