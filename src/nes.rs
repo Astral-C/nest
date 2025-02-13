@@ -4,6 +4,7 @@ use std::path::Path;
 
 use crate::nes::{
     cpu::Cpu,
+    cpu::CpuFlags,
     mmu::Mmu,
     ppu::Ppu,
     ppu::SCREEN_WIDTH,
@@ -28,13 +29,20 @@ impl Nes {
     pub fn new() -> Self {
         Self {
             mmu: Mmu {
-                memory: vec![0; 0x10000]
+                memory: [0; 0x10000]
             },
         
             cpu: Cpu {
                 a: 0, x: 0, y: 0, // a, x, y
                 pc: 0xFFFC, sp: 0xFD, // pc, sp
-                p: 0 // flags
+                flags: CpuFlags {
+                    negative: false,
+                    overflow: false,
+                    decimal: false,
+                    interrupt_disable: false,
+                    zero: false,
+                    carry: false
+                }
             },
             ppu: Ppu {
                 screen_buffer: [0xFF000000; SCREEN_WIDTH*SCREEN_HEIGHT]
@@ -51,9 +59,13 @@ impl Nes {
         
         while cycles < CYCLES_PER_FRAME {
             cycles += self.cpu.step(&mut self.mmu);
-            //self.ppu.step(&mut self.mmu);
-            //println!("CPU State\n{}", cpu);
+            println!("State: {}", self.cpu);
         }
+    }
+
+    pub fn reset(&mut self){
+        self.cpu.pc = 0xC000;//(self.mmu.read(0xFFFC) as u16) << 8 | self.mmu.read(0xFFFD) as u16;
+        println!("CPU PC is 0x{:04x}", self.cpu.pc);
     }
 
     pub fn load_rom(&mut self, path: &Path) {
@@ -63,6 +75,16 @@ impl Nes {
             Ok(file) => file
         };
 
-        file.read(&mut self.mmu.memory).expect("Rom Too Big!");
+        let mut rom_data = Vec::new();
+        file.read_to_end(&mut rom_data).expect("Rom Too Big!");
+    
+        for i in 0..0x4000 { // PRGRAM
+            self.mmu.memory[0x8000 + i] = rom_data[i + 0x10];
+        }
+
+        for i in 0..0x4000 { // PRGRAM Mirror
+            self.mmu.memory[0xC000 + i] = rom_data[i + 0x10];
+        }
+
     }
 }
