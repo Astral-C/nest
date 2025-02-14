@@ -149,6 +149,83 @@ impl Cpu {
             
             /*-----------------------------------------------------------------------*/
 
+            /*-------------------------------AND-------------------------------------*/
+            0x29 => { // immediate
+                self.a &= memory.read(self.pc);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                2
+            }
+            0x25 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                self.a &= memory.read(address);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                3
+            }
+            0x35 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                self.a &= memory.read(address);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                4
+            }
+            0x2D => {// absolute
+                self.a &= memory.read(memory.read_u16(self.pc));
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                4
+            }
+            0x3D => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                self.a &= memory.read(address + self.x as u16);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0x39 => {// absolute + y
+                let address: u16 = memory.read_u16(self.pc);
+                self.a &= memory.read(address + self.x as u16);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0x21 => { // indirect, x
+                self.a &= memory.read_indirect_pre_index(memory.read(self.pc), self.x);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                6
+            }
+            0x31 => { // indirect, idx y
+                let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
+                self.a &= read.0;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                
+                if read.1 {
+                    6
+                } else {
+                    5
+                }
+            }
+            /*-----------------------------------------------------------------------*/
+
             /*-------------------------------ORA-------------------------------------*/
             0x09 => { // immediate
                 self.a |= memory.read(self.pc);
@@ -342,9 +419,6 @@ impl Cpu {
                 self.step_pc(2);
                 7
             }
-            /*-----------------------------------------------------------------------*/
-
-
             /*-------------------------------INX-------------------------------------*/
             0xE8 => {
                 self.x = self.x.wrapping_add(1);
@@ -394,8 +468,6 @@ impl Cpu {
                 self.step_pc(2);
                 7
             }
-            /*-----------------------------------------------------------------------*/
-
             /*-------------------------------DEX-------------------------------------*/
             0xCA => {
                 self.x = self.x.wrapping_sub(1);
@@ -418,6 +490,160 @@ impl Cpu {
                 self.pc = memory.read_u16(address);
                 5
             }
+
+            /*-------------------------------BCC-------------------------------------*/
+            0x90 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.carry == 0 { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-------------------------------BCS-------------------------------------*/
+            0xB0 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.carry == 1 { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-------------------------------BEQ-------------------------------------*/
+            0xF0 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.zero { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-------------------------------BMI-------------------------------------*/
+            0x30 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.negative { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-------------------------------BNE-------------------------------------*/
+            0xD0 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.zero == false { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-------------------------------BPL-------------------------------------*/
+            0x10 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.negative == false { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-------------------------------BVC-------------------------------------*/
+            0x50 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.overflow == false { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-------------------------------BVS-------------------------------------*/
+            0x70 => {
+                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let offset: u8  = memory.read(self.pc);
+                self.step_pc(1);
+                self.pc = if self.flags.overflow { self.pc.wrapping_add(offset as u16) } else { self.pc };
+                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+
+                if start_page == end_page { // if branch stays on current page
+                    3
+                } else { // if branch goes to new page
+                    4
+                }
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------CLC-------------------------------------*/
+            0x18 => {
+                self.flags.carry = 0;
+                2
+            }
+            /*-------------------------------CLD-------------------------------------*/
+            0xD8 => {
+                self.flags.decimal = false;
+                2
+            }
+            /*-------------------------------CLI-------------------------------------*/
+            0x58 => {
+                self.flags.interrupt_disable = false;
+                2
+            }
+            /*-------------------------------CLV-------------------------------------*/
+            0xB8 => {
+                self.flags.overflow = false;
+                2
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------SEC-------------------------------------*/
+            0x38 => {
+                self.flags.carry = 1;
+                2
+            }
+            /*-------------------------------SED-------------------------------------*/
+            0xF8 => {
+                self.flags.decimal = true;
+                2
+            }
+            /*-------------------------------SEI-------------------------------------*/
+            0x78 => {
+                self.flags.interrupt_disable = true;
+                2
+            }
+            /*-----------------------------------------------------------------------*/
+
             // NOP
             0xEA => 2,
             _ => {
