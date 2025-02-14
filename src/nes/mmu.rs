@@ -3,6 +3,11 @@ pub struct Mmu {
 }
 
 impl Mmu {
+
+    pub fn write(&mut self, address: u16, value: u8){
+        self.memory[address as usize] = value; 
+    }
+
     pub fn read_indirect_pre_index(&self, address: u8, x: u8) -> u8 {
         let indirect_addr: u16 = self.read_u16(address.wrapping_add(x) as u16);
         self.read(indirect_addr)

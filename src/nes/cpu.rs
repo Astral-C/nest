@@ -46,8 +46,7 @@ impl Cpu {
 
         self.step_pc(1);
         match opcode {
-            /*-----------------------------------------------------------------------*/
-            // ORA
+            /*-------------------------------ORA-------------------------------------*/
             0x09 => { // immediate
                 self.a |= memory.read(self.pc);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
@@ -125,16 +124,144 @@ impl Cpu {
             
             /*-----------------------------------------------------------------------*/
             
-            // JMP Absolute
-            0x4C => {
-                self.pc = memory.read_u16(self.pc);
-                self.flags.clear();
+            /*-------------------------------EOR-------------------------------------*/
+            0x49 => { // immediate
+                self.a ^= memory.read(self.pc);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                2
+            }
+            0x45 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                self.a ^= memory.read(address);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
                 3
             }
-            0x6C => {
+            0x55 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                self.a ^= memory.read(address);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                4
+            }
+            0x4D => {// absolute
+                self.a ^= memory.read(memory.read_u16(self.pc));
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                4
+            }
+            0x5D => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                self.a ^= memory.read(address + self.x as u16);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0x59 => {// absolute + y
+                let address: u16 = memory.read_u16(self.pc);
+                self.a ^= memory.read(address + self.x as u16);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0x41 => { // indirect, x
+                self.a ^= memory.read_indirect_pre_index(memory.read(self.pc), self.x);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                6
+            }
+            0x51 => { // indirect, idx y
+                let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
+                self.a ^= read.0;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                
+                if read.1 {
+                    5
+                } else {
+                    4
+                }
+            }
+            /*-----------------------------------------------------------------------*/
+
+            
+            /*-------------------------------INC M-----------------------------------*/
+            0xE6 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let value: u8 = memory.read(address).wrapping_add(1);
+                memory.write(address, value);
+                self.flags.negative = (value & 0b1000_0000) != 0;
+                self.flags.zero = value == 0;
+                self.step_pc(1);
+                5
+            }
+            0xF6 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                let value: u8 = memory.read(address).wrapping_add(1);
+                memory.write(address, value);
+                self.flags.negative = (value & 0b1000_0000) != 0;
+                self.flags.zero = value == 0;
+                self.step_pc(1);
+                6
+            }
+            0xEE => {// absolute
+                let address: u16 = memory.read_u16(self.pc);
+                let value: u8 = memory.read(address).wrapping_add(1);
+                memory.write(address, value);
+                self.flags.negative = (value & 0b1000_0000) != 0;
+                self.flags.zero = value == 0;
+                self.step_pc(2);
+                6
+            }
+            0xFE => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                let value: u8 = memory.read(address + self.x as u16).wrapping_add(1);
+                memory.write(address, value);
+                self.flags.negative = (value & 0b1000_0000) != 0;
+                self.flags.zero = value == 0;
+                self.step_pc(2);
+                7
+            }
+            /*-----------------------------------------------------------------------*/
+
+
+            /*-------------------------------INX-------------------------------------*/
+            0xE8 => {
+                self.x = self.x.wrapping_add(1);
+                2
+            }
+            /*-------------------------------INY-------------------------------------*/
+            0xC8 => { // INC Y
+                self.y = self.y.wrapping_add(1);
+                2
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------JMP-------------------------------------*/
+            0x4C => { // absolute
+                self.pc = memory.read_u16(self.pc);
+                3
+            }
+            0x6C => { // indirect
                 let address: u16 = memory.read_u16(self.pc);
                 self.pc = memory.read_u16(address);
-                self.flags.clear();
                 5
             }
             // NOP
