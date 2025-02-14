@@ -50,9 +50,9 @@ impl Cpu {
             /*-------------------------------ADC-------------------------------------*/
             0x69 => { // immediate
                 let result: u16 = self.a as u16 + memory.read(self.pc) as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -61,9 +61,9 @@ impl Cpu {
             0x65 => { // zero page
                 let address: u16 = memory.read(self.pc) as u16;
                 let result: u16 = self.a as u16 + memory.read(address) as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -72,9 +72,9 @@ impl Cpu {
             0x75 => { // zero page + x
                 let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
                 let result: u16 = self.a as u16 + memory.read(address) as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -83,9 +83,9 @@ impl Cpu {
             0x6D => {// absolute
                 let address: u16 = memory.read_16(self.pc);
                 let result: u16 = self.a as u16 + memory.read(address) as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
@@ -94,9 +94,9 @@ impl Cpu {
             0x7D => {// absolute + x
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + memory.read(address + self.x as u16) as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
@@ -109,9 +109,9 @@ impl Cpu {
             0x79 => {// absolute + y
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + memory.read(address + self.y as u16) as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
@@ -123,9 +123,9 @@ impl Cpu {
             }
             0x61 => { // indirect, x
                 let result: u16 = self.a as u16 + memory.read_indirect_pre_index(memory.read(self.pc), self.x) as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -134,9 +134,9 @@ impl Cpu {
             0x71 => { // indirect, idx y
                 let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
                 let result: u16 = self.a as u16 + read.0 as u16;
-                self.a = (result & 0x00FF) as u8;
+                self.a = (result & 0xFF) as u8;
                 self.overflow = result > 0xFF;
-                self.carry = (self.a &  0xFF) as u8;
+                self.carry = ((self.a & 0x00FF) >> 8) as u8;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
