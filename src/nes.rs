@@ -41,7 +41,7 @@ impl Nes {
                     decimal: false,
                     interrupt_disable: false,
                     zero: false,
-                    carry: false
+                    carry: 0
                 }
             },
             ppu: Ppu {
@@ -59,7 +59,7 @@ impl Nes {
         
         while cycles < CYCLES_PER_FRAME {
             cycles += self.cpu.step(&mut self.mmu);
-            println!("State: {}", self.cpu);
+            //println!("State: {}", self.cpu);
         }
     }
 
