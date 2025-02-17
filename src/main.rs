@@ -25,7 +25,7 @@ fn main() {
 
     let mut nes: Nes = Nes::new();
 
-    let rom_path = Path::new("test_roms/nestest.nes");
+    let rom_path = Path::new("test_roms/smb.nes");
     nes.load_rom(rom_path);
 
     nes.reset();

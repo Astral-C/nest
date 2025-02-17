@@ -1,4 +1,4 @@
-use crate::nes::mmu::Mmu;
+use crate::nes::mbc::Mbc;
 
 pub const SCREEN_WIDTH: usize = 256;
 pub const SCREEN_HEIGHT: usize = 240;
@@ -9,7 +9,7 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    pub fn update_screen(&mut self, mmu: &Mmu){
+    pub fn update_screen(&mut self, mbc: &Mbc){
         
     }
 }

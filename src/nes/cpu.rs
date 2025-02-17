@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::nes::mmu::Mmu;
+use crate::nes::mbc::Mbc;
 
 pub struct CpuFlags {
     pub negative: bool,
@@ -40,7 +40,7 @@ impl Cpu {
     pub fn step_pc(&mut self, amount: u16) {
         self.pc = self.pc.wrapping_add(amount);
     }
-    pub fn step(&mut self, memory: &mut Mmu) -> u32 {
+    pub fn step(&mut self, memory: &mut Mbc) -> u32 {
         let opcode: u8 = memory.read(self.pc);
 
         self.step_pc(1);
@@ -48,10 +48,11 @@ impl Cpu {
 
             /*-------------------------------ADC-------------------------------------*/
             0x69 => { // immediate
-                let result: u16 = self.a as u16 + memory.read(self.pc) as u16;
+                let result: u16 = self.a as u16 + memory.read(self.pc) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(self.pc))) & 0x80 != 0;
+
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -59,10 +60,11 @@ impl Cpu {
             }
             0x65 => { // zero page
                 let address: u16 = memory.read(self.pc) as u16;
-                let result: u16 = self.a as u16 + memory.read(address) as u16;
+                let result: u16 = self.a as u16 + memory.read(address) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -70,10 +72,11 @@ impl Cpu {
             }
             0x75 => { // zero page + x
                 let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
-                let result: u16 = self.a as u16 + memory.read(address) as u16;
+                let result: u16 = self.a as u16 + memory.read(address) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -81,10 +84,11 @@ impl Cpu {
             }
             0x6D => {// absolute
                 let address: u16 = memory.read_u16(self.pc);
-                let result: u16 = self.a as u16 + memory.read(address) as u16;
+                let result: u16 = self.a as u16 + memory.read(address) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
@@ -92,10 +96,11 @@ impl Cpu {
             }
             0x7D => {// absolute + x
                 let address: u16 = memory.read_u16(self.pc);
-                let result: u16 = self.a as u16 + memory.read(address + self.x as u16) as u16;
+                let result: u16 = self.a as u16 + memory.read(address + self.x as u16) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
@@ -107,24 +112,26 @@ impl Cpu {
             }
             0x79 => {// absolute + y
                 let address: u16 = memory.read_u16(self.pc);
-                let result: u16 = self.a as u16 + memory.read(address + self.y as u16) as u16;
+                let result: u16 = self.a as u16 + memory.read(address + self.y as u16) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0xFF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
                 }
             }
             0x61 => { // indirect, x
-                let result: u16 = self.a as u16 + memory.read_indirect_pre_index(memory.read(self.pc), self.x) as u16;
+                let result: u16 = self.a as u16 + memory.read_indirect_pre_index(memory.read(self.pc), self.x) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read_indirect_pre_index(memory.read(self.pc), self.x))) & 0x80 != 0;
+
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -132,10 +139,10 @@ impl Cpu {
             }
             0x71 => { // indirect, idx y
                 let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
-                let result: u16 = self.a as u16 + read.0 as u16;
+                let result: u16 = self.a as u16 + read.0 as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ read.0)) & 0x80 != 0;
                 self.a = (result & 0xFF) as u8;
-                self.flags.overflow = result > 0xFF;
-                self.flags.carry = ((result & 0x00FF) >> 8) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(1);
@@ -146,7 +153,115 @@ impl Cpu {
                     5
                 }
             }
-            
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------SBC-------------------------------------*/
+            0xE9 => { // immediate
+                let result: u16 = self.a as u16 + !memory.read(self.pc) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(self.pc))) & 0x80 != 0;
+
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                2
+            }
+            0xE5 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let result: u16 = self.a as u16 + !memory.read(address) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                3
+            }
+            0xF5 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                let result: u16 = self.a as u16 + !memory.read(address) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                4
+            }
+            0xED => {// absolute
+                let address: u16 = memory.read_u16(self.pc);
+                let result: u16 = self.a as u16 + !memory.read(address) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                4
+            }
+            0xFD => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                let result: u16 = self.a as u16 + !memory.read(address + self.x as u16) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0xF9 => {// absolute + y
+                let address: u16 = memory.read_u16(self.pc);
+                let result: u16 = self.a as u16 + !memory.read(address + self.y as u16) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.y as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0xE1 => { // indirect, x
+                let result: u16 = self.a as u16 + !memory.read_indirect_pre_index(memory.read(self.pc), self.x) as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read_indirect_pre_index(memory.read(self.pc), self.x))) & 0x80 != 0;
+
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                6
+            }
+            0xF1 => { // indirect, idx y
+                let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
+                let result: u16 = self.a as u16 + !read.0 as u16 + self.flags.carry as u16;
+                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !read.0)) & 0x80 != 0;
+                self.a = (result & 0xFF) as u8;
+                self.flags.carry = if result > 0xFF { 1 } else { 0 };
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                
+                if read.1 {
+                    6
+                } else {
+                    5
+                }
+            }
             /*-----------------------------------------------------------------------*/
 
             /*-------------------------------AND-------------------------------------*/
@@ -194,11 +309,11 @@ impl Cpu {
             }
             0x39 => {// absolute + y
                 let address: u16 = memory.read_u16(self.pc);
-                self.a &= memory.read(address + self.x as u16);
+                self.a &= memory.read(address + self.y as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0xFF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -223,6 +338,232 @@ impl Cpu {
                 } else {
                     5
                 }
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------ASL-------------------------------------*/
+            0x0A => { // accumulator
+                self.flags.carry = (self.a & 0b1000_0000) >> 7;
+                self.a <<= 1;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                2
+            }
+            0x06 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                5
+            }
+            0x16 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                6
+            }
+            0x0E => {// absolute
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                6
+            }
+            0x1E => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address + self.x as u16);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                memory.write(address + self.x as u16, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                7
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------LSR-------------------------------------*/
+            0x4A => { // accumulator
+                self.flags.carry = self.a & 0b0000_00011;
+                self.a >>= 1;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                2
+            }
+            0x46 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = self.a & 0b0000_00011;
+                data >>= 1;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                5
+            }
+            0x56 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = self.a & 0b0000_00011;
+                data >>= 1;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                6
+            }
+            0x4E => {// absolute
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = self.a & 0b0000_00011;
+                data >>= 1;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                6
+            }
+            0x5E => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address + self.x as u16);
+                self.flags.carry = self.a & 0b0000_00011;
+                data >>= 1;
+                memory.write(address + self.x as u16, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                7
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------ROL-------------------------------------*/
+            0x2A => { // accumulator 
+                self.flags.carry = (self.a & 0b1000_0000) >> 7;
+                self.a <<= 1;
+                self.a |= self.flags.carry;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                2
+            }
+            0x26 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                data |= self.flags.carry;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                5
+            }
+            0x36 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                data |= self.flags.carry;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                6
+            }
+            0x2E => {// absolute
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                data |= self.flags.carry;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                6
+            }
+            0x3E => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address + self.x as u16);
+                self.flags.carry = (data & 0b1000_0000) >> 7;
+                data <<= 1;
+                data |= self.flags.carry;
+                memory.write(address + self.x as u16, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                7
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------ROR-------------------------------------*/
+            0x6A => { // accumulator
+                self.flags.carry = self.a & 0b0000_00011;
+                self.a >>= 1;
+                self.a |= self.flags.carry << 7;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                2
+            }
+            0x66 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = data & 0b0000_0001;
+                data >>= 1;
+                data |= self.flags.carry << 7;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                5
+            }
+            0x76 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = data & 0b0000_0001;
+                data >>= 1;
+                data |= self.flags.carry << 7;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(1);
+                6
+            }
+            0x6E => {// absolute
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address);
+                self.flags.carry = data & 0b0000_0001;
+                data >>= 1;
+                data |= self.flags.carry << 7;
+                memory.write(address, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                6
+            }
+            0x7E => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                let mut data: u8 = memory.read(address + self.x as u16);
+                self.flags.carry = data & 0b0000_0001;
+                data >>= 1;
+                data |= self.flags.carry << 7;
+                memory.write(address + self.x as u16, data);
+                self.flags.negative = (data & 0b1000_0000) != 0;
+                self.flags.zero = data == 0;
+                self.step_pc(2);
+                7
             }
             /*-----------------------------------------------------------------------*/
 
@@ -271,11 +612,11 @@ impl Cpu {
             }
             0x19 => {// absolute + y
                 let address: u16 = memory.read_u16(self.pc);
-                self.a |= memory.read(address + self.x as u16);
+                self.a |= memory.read(address + self.y as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0xFF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -349,11 +690,11 @@ impl Cpu {
             }
             0x59 => {// absolute + y
                 let address: u16 = memory.read_u16(self.pc);
-                self.a ^= memory.read(address + self.x as u16);
+                self.a ^= memory.read(address + self.y as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0xFF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -490,6 +831,59 @@ impl Cpu {
                 self.pc = memory.read_u16(address);
                 5
             }
+            /*-------------------------------JSR-------------------------------------*/
+            0x20 => {
+                let return_address: u16 = self.pc.wrapping_add(2);
+                memory.write(self.sp as u16, ((return_address & 0xFF) >> 8) as u8);
+                memory.write((self.sp - 1) as u16, (return_address & 0x00FF) as u8);
+                self.sp = self.sp.wrapping_sub(2);
+                self.pc = memory.read_u16(self.pc);
+                6
+            }
+            /*-------------------------------RTS-------------------------------------*/
+            0x60 => {
+                self.pc = (memory.read(self.sp as u16) as u16) << 8 | memory.read((self.sp.wrapping_add(1)) as u16) as u16;
+                self.sp = self.sp.wrapping_add(2);
+                6
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------PHA-------------------------------------*/
+            0x48 => {
+                memory.write(self.sp as u16, self.a);
+                self.sp = self.sp.wrapping_sub(1);
+                3
+            }
+            /*-------------------------------PHP-------------------------------------*/
+            0x08 => {
+                let status_reg: u8 = if self.flags.negative { 1 << 7 } else { 0 << 7 } | if self.flags.overflow { 1 << 6 } else { 0 << 6 } | 1 << 5 | 1 << 4 |
+                    if self.flags.decimal { 1 << 3 } else { 0 << 3 } | if self.flags.interrupt_disable { 1 << 2 } else { 0 << 2 } | if self.flags.zero { 1 << 1 } else { 0 << 1 } | self.flags.carry;
+
+                memory.write(self.sp as u16, status_reg);
+                self.sp = self.sp.wrapping_sub(1);
+                3
+            }
+            /*-------------------------------PLA-------------------------------------*/
+            0x68 => {
+                self.sp = self.sp.wrapping_add(1);
+                self.a = memory.read(self.sp as u16);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                4
+            }
+            /*-------------------------------PLP-------------------------------------*/
+            0x28 => {
+                self.sp = self.sp.wrapping_add(1);
+                let status_reg: u8 = memory.read(self.sp as u16);
+                self.flags.negative = (status_reg & 0b1000_0000) >> 7 != 0;
+                self.flags.overflow = (status_reg & 0b0100_0000) >> 6 != 0;
+                self.flags.decimal = (status_reg & 0b0000_1000) >> 3 != 0;
+                self.flags.interrupt_disable = (status_reg & 0b0000_0100) >> 2 != 0;
+                self.flags.zero = (status_reg & 0b0000_0010) >> 1 != 0;
+                self.flags.carry = status_reg & 0b0000_0001;
+                4
+            }
+            /*-----------------------------------------------------------------------*/
 
             /*-------------------------------BCC-------------------------------------*/
             0x90 => {
@@ -627,6 +1021,296 @@ impl Cpu {
             }
             /*-----------------------------------------------------------------------*/
 
+            /*-------------------------------CMP-------------------------------------*/
+            0xC9 => { // immediate
+                let data: u8 = memory.read(self.pc);
+                let res: u8 = self.a.wrapping_sub(data);
+                if self.a < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                2
+            }
+            0xC5 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let data: u8 = memory.read(address);
+                let res: u8 = self.a.wrapping_sub(data);
+                if self.a < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                3
+            }
+            0xD5 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                let data: u8 = memory.read(address);
+                let res: u8 = self.a.wrapping_sub(data);
+                if self.a < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                4
+            }
+            0xCD => {// absolute
+                let data: u8 = memory.read(memory.read_u16(self.pc));
+                let res: u8 = self.a.wrapping_sub(data);
+                if self.a < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(2);
+                4
+            }
+            0xDD => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                let data: u8 = memory.read(address + self.x as u16);
+                let res: u8 = self.a.wrapping_sub(data);
+                if self.a < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0xD9 => {// absolute + y
+                let address: u16 = memory.read_u16(self.pc);
+                let data: u8 = memory.read(address + self.y as u16);
+                let res: u8 = self.a.wrapping_sub(data);
+                if self.a < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(2);
+                if (address & 0xFF + self.y as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0xC1 => { // indirect, x
+                let data: u8 = memory.read_indirect_pre_index(memory.read(self.pc), self.x);
+                let res: u8 = self.a.wrapping_sub(data);
+                if self.a < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                6
+            }
+            0xD1 => { // indirect, idx y
+                let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
+                let res: u8 = self.a.wrapping_sub(read.0);
+                if self.a < read.0 {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.a == read.0 {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.a > read.0 {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                
+                if read.1 {
+                    6
+                } else {
+                    5
+                }
+            }
+            /*-------------------------------CPX-------------------------------------*/
+            0xE0 => { // immediate
+                let data: u8 = memory.read(self.pc);
+                let res: u8 = self.x.wrapping_sub(data);
+                if self.x < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.x == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.x > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                2
+            }
+            0xE4 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let data: u8 = memory.read(address);
+                let res: u8 = self.x.wrapping_sub(data);
+                if self.x < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.x == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.x > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                3
+            }
+            0xEC => {// absolute
+                let data: u8 = memory.read(memory.read_u16(self.pc));
+                let res: u8 = self.x.wrapping_sub(data);
+                if self.x < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.x == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.x > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(2);
+                4
+            }
+            /*-------------------------------CPY-------------------------------------*/
+            0xC0 => { // immediate
+                let data: u8 = memory.read(self.pc);
+                let res: u8 = self.y.wrapping_sub(data);
+                if self.y < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.y == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.y > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                2
+            }
+            0xC4 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let data: u8 = memory.read(address);
+                let res: u8 = self.y.wrapping_sub(data);
+                if self.y < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.y == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.y > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(1);
+                3
+            }
+            0xCC => {// absolute
+                let data: u8 = memory.read(memory.read_u16(self.pc));
+                let res: u8 = self.y.wrapping_sub(data);
+                if self.y < data {
+                    self.flags.zero = false;
+                    self.flags.carry = 0;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                } else if self.y == data {
+                    self.flags.zero = true;
+                    self.flags.carry = 1;
+                    self.flags.negative = false;
+                } else if self.y > data {
+                    self.flags.zero = false;
+                    self.flags.carry = 1;
+                    self.flags.negative = (res & 0b1000_0000) != 0;
+                }
+                self.step_pc(2);
+                4
+            }
+            /*-----------------------------------------------------------------------*/
+
             /*-------------------------------SEC-------------------------------------*/
             0x38 => {
                 self.flags.carry = 1;
@@ -640,6 +1324,299 @@ impl Cpu {
             /*-------------------------------SEI-------------------------------------*/
             0x78 => {
                 self.flags.interrupt_disable = true;
+                2
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------LDA-------------------------------------*/
+            0xA9 => { // immediate
+                self.a = memory.read(self.pc);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                2
+            }
+            0xA5 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                self.a = memory.read(address);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                3
+            }
+            0xB5 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                self.a = memory.read(address);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                4
+            }
+            0xAD => {// absolute
+                self.a = memory.read(memory.read_u16(self.pc));
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                4
+            }
+            0xBD => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                self.a = memory.read(address + self.x as u16);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0xB9 => {// absolute + y
+                let address: u16 = memory.read_u16(self.pc);
+                self.a = memory.read(address + self.y as u16);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.y as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            0xA1 => { // indirect, x
+                self.a = memory.read_indirect_pre_index(memory.read(self.pc), self.x);
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                6
+            }
+            0xB1 => { // indirect, idx y
+                let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
+                self.a = read.0;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                self.flags.zero = self.a == 0;
+                self.step_pc(1);
+                
+                if read.1 {
+                    6
+                } else {
+                    5
+                }
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------LDX-------------------------------------*/
+            0xA2 => { // immediate
+                self.x = memory.read(self.pc);
+                self.flags.negative = (self.x & 0b1000_0000) != 0;
+                self.flags.zero = self.x == 0;
+                self.step_pc(1);
+                2
+            }
+            0xA6 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                self.x = memory.read(address);
+                self.flags.negative = (self.x & 0b1000_0000) != 0;
+                self.flags.zero = self.x == 0;
+                self.step_pc(1);
+                3
+            }
+            0xB6 => { // zero page + y
+                let address: u16 = memory.read(self.pc).wrapping_add(self.y) as u16;
+                self.x = memory.read(address);
+                self.flags.negative = (self.x & 0b1000_0000) != 0;
+                self.flags.zero = self.x == 0;
+                self.step_pc(1);
+                4
+            }
+            0xAE => {// absolute
+                self.x = memory.read(memory.read_u16(self.pc));
+                self.flags.negative = (self.x & 0b1000_0000) != 0;
+                self.flags.zero = self.x == 0;
+                self.step_pc(2);
+                4
+            }
+            0xBE => {// absolute + y
+                let address: u16 = memory.read_u16(self.pc);
+                self.x = memory.read(address + self.y as u16);
+                self.flags.negative = (self.x & 0b1000_0000) != 0;
+                self.flags.zero = self.x == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.y as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------LDY-------------------------------------*/
+            0xA0 => { // immediate
+                self.y = memory.read(self.pc);
+                self.flags.negative = (self.y & 0b1000_0000) != 0;
+                self.flags.zero = self.y == 0;
+                self.step_pc(1);
+                2
+            }
+            0xA4 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                self.y = memory.read(address);
+                self.flags.negative = (self.y & 0b1000_0000) != 0;
+                self.flags.zero = self.y == 0;
+                self.step_pc(1);
+                3
+            }
+            0xB4 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                self.y = memory.read(address);
+                self.flags.negative = (self.y & 0b1000_0000) != 0;
+                self.flags.zero = self.y == 0;
+                self.step_pc(1);
+                4
+            }
+            0xAC => {// absolute
+                self.y = memory.read(memory.read_u16(self.pc));
+                self.flags.negative = (self.y & 0b1000_0000) != 0;
+                self.flags.zero = self.y == 0;
+                self.step_pc(2);
+                4
+            }
+            0xBC => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                self.y = memory.read(address + self.x as u16);
+                self.flags.negative = (self.y & 0b1000_0000) != 0;
+                self.flags.zero = self.y == 0;
+                self.step_pc(2);
+                if (address & 0xFF + self.x as u16) > 0xFF {
+                    5
+                } else{
+                    4
+                }
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------STA-------------------------------------*/
+            0x85 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                memory.write(address, self.a);
+                self.step_pc(1);
+                3
+            }
+            0x95 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                memory.write(address, self.a);
+                self.step_pc(1);
+                4
+            }
+            0x8D => {// absolute
+                memory.write(memory.read_u16(self.pc), self.a);
+                self.step_pc(2);
+                4
+            }
+            0x9D => {// absolute + x
+                let address: u16 = memory.read_u16(self.pc);
+                memory.write(address + self.x as u16, self.a);
+                self.step_pc(2);
+                5
+            }
+            0x99 => {// absolute + y
+                let address: u16 = memory.read_u16(self.pc);
+                memory.write(address + self.y as u16, self.a);
+                self.step_pc(2);
+                5
+            }
+            0x81 => { // indirect, x
+                memory.write_indirect_pre_index(memory.read(self.pc), self.x, self.a);
+                self.step_pc(1);
+                6
+            }
+            0x91 => { // indirect, idx y
+                memory.write_indirect_post_index(memory.read(self.pc), self.y, self.a);
+                self.step_pc(1);
+                6
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------STX-------------------------------------*/
+            0x86 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                memory.write(address, self.x);
+                self.step_pc(1);
+                3
+            }
+            0x96 => { // zero page + y
+                let address: u16 = memory.read(self.pc).wrapping_add(self.y) as u16;
+                memory.write(address, self.x);
+                self.step_pc(1);
+                4
+            }
+            0x8E => {// absolute
+                memory.write(memory.read_u16(self.pc), self.x);
+                self.step_pc(2);
+                4
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------STY-------------------------------------*/
+            0x84 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                memory.write(address, self.y);
+                self.step_pc(1);
+                3
+            }
+            0x94 => { // zero page + x
+                let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
+                memory.write(address, self.y);
+                self.step_pc(1);
+                4
+            }
+            0x8C => {// absolute
+                memory.write(memory.read_u16(self.pc), self.y);
+                self.step_pc(2);
+                4
+            }
+            /*-----------------------------------------------------------------------*/
+
+            /*-------------------------------TAX-------------------------------------*/
+            0xAA => {
+                self.x = self.a;
+                self.flags.zero = self.x == 0;
+                self.flags.negative = (self.x & 0b1000_0000) != 0;
+                2
+            }
+            /*-------------------------------TAY-------------------------------------*/
+            0xA8 => {
+                self.y = self.a;
+                self.flags.zero = self.y == 0;
+                self.flags.negative = (self.y & 0b1000_0000) != 0;
+                2
+            }
+            /*-------------------------------TSX-------------------------------------*/
+            0xBA => {
+                self.x = self.sp;
+                self.flags.zero = self.x == 0;
+                self.flags.negative = (self.x & 0b1000_0000) != 0;
+                2
+            }
+            /*-------------------------------TXA-------------------------------------*/
+            0x8A => {
+                self.a = self.x;
+                self.flags.zero = self.a == 0;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
+                2
+            }
+            /*-------------------------------TXS-------------------------------------*/
+            0x9A => {
+                self.sp = self.x;
+                self.flags.zero = self.sp == 0;
+                self.flags.negative = (self.sp & 0b1000_0000) != 0;
+                2
+            }
+            /*-------------------------------TYA-------------------------------------*/
+            0x98 => {
+                self.a = self.y;
+                self.flags.zero = self.a == 0;
+                self.flags.negative = (self.a & 0b1000_0000) != 0;
                 2
             }
             /*-----------------------------------------------------------------------*/

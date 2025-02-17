@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::nes::{
     cpu::Cpu,
     cpu::CpuFlags,
-    mmu::Mmu,
+    mbc::Mbc,
     ppu::Ppu,
     ppu::SCREEN_WIDTH,
     ppu::SCREEN_HEIGHT
@@ -13,7 +13,7 @@ use crate::nes::{
 
 use minifb::Window;
 
-pub mod mmu;
+pub mod mbc;
 pub mod cpu;
 pub mod ppu;
 
@@ -21,15 +21,16 @@ const CYCLES_PER_FRAME: u32 = 29781;
     
 pub struct Nes {
     cpu: Cpu,
-    mmu: Mmu,
+    mbc: Mbc,
     ppu: Ppu
 }
 
 impl Nes {
     pub fn new() -> Self {
         Self {
-            mmu: Mmu {
-                memory: [0; 0x10000]
+            mbc: Mbc {
+                memory: [0; 0x10000],
+                rom: vec![0; 0xFFFF]
             },
         
             cpu: Cpu {
@@ -58,13 +59,13 @@ impl Nes {
         let mut cycles: u32 = 0;
         
         while cycles < CYCLES_PER_FRAME {
-            cycles += self.cpu.step(&mut self.mmu);
+            cycles += self.cpu.step(&mut self.mbc);
             //println!("State: {}", self.cpu);
         }
     }
 
     pub fn reset(&mut self){
-        self.cpu.pc = 0xC000;//(self.mmu.read(0xFFFC) as u16) << 8 | self.mmu.read(0xFFFD) as u16;
+        self.cpu.pc = 0xC000;//(self.mbc.read(0xFFFC) as u16) << 8 | self.mbc.read(0xFFFD) as u16;
         println!("CPU PC is 0x{:04x}", self.cpu.pc);
     }
 
@@ -79,11 +80,11 @@ impl Nes {
         file.read_to_end(&mut rom_data).expect("Rom Too Big!");
     
         for i in 0..0x4000 { // PRGRAM
-            self.mmu.memory[0x8000 + i] = rom_data[i + 0x10];
+            self.mbc.memory[0x8000 + i] = rom_data[i + 0x10];
         }
 
         for i in 0..0x4000 { // PRGRAM Mirror
-            self.mmu.memory[0xC000 + i] = rom_data[i + 0x10];
+            self.mbc.memory[0xC000 + i] = rom_data[i + 0x10];
         }
 
     }
