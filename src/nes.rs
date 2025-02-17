@@ -60,7 +60,7 @@ impl Nes {
         
         while cycles < CYCLES_PER_FRAME {
             cycles += self.cpu.step(&mut self.mbc);
-            //println!("State: {}", self.cpu);
+            println!("State: {}", self.cpu);
         }
     }
 

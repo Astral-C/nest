@@ -21,7 +21,7 @@ pub struct Cpu {
 
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Registers[A: 0x{:02x}, X: 0x{:02x}, Y: 0x{:02x}] - PC: [0x{:04x}] - SP: [0x{:04x}]", self.a, self.x, self.y, self.pc, self.sp)
+        write!(f, "Registers[A: 0x{:02X}, X: 0x{:02X}, Y: 0x{:02X}] - PC: [0x{:04X}] - SP: [0x{:04X}]", self.a, self.x, self.y, self.pc, self.sp)
     }
 }
 
@@ -49,62 +49,67 @@ impl Cpu {
             /*-------------------------------ADC-------------------------------------*/
             0x69 => { // immediate
                 let result: u16 = self.a as u16 + memory.read(self.pc) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(self.pc))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ memory.read(self.pc))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", memory.read(self.pc));
                 self.step_pc(1);
                 2
             }
             0x65 => { // zero page
                 let address: u16 = memory.read(self.pc) as u16;
                 let result: u16 = self.a as u16 + memory.read(address) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", memory.read(address));
                 self.step_pc(1);
                 3
             }
             0x75 => { // zero page + x
                 let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
                 let result: u16 = self.a as u16 + memory.read(address) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", memory.read(address));
                 self.step_pc(1);
                 4
             }
             0x6D => {// absolute
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + memory.read(address) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", memory.read(address));
                 self.step_pc(2);
                 4
             }
             0x7D => {// absolute + x
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + memory.read(address + self.x as u16) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", memory.read(address + self.x as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -113,14 +118,15 @@ impl Cpu {
             0x79 => {// absolute + y
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + memory.read(address + self.y as u16) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", memory.read(address + self.y as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -128,23 +134,25 @@ impl Cpu {
             }
             0x61 => { // indirect, x
                 let result: u16 = self.a as u16 + memory.read_indirect_pre_index(memory.read(self.pc), self.x) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ memory.read_indirect_pre_index(memory.read(self.pc), self.x))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ memory.read_indirect_pre_index(memory.read(self.pc), self.x))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", memory.read_indirect_pre_index(memory.read(self.pc), self.x));
                 self.step_pc(1);
                 6
             }
             0x71 => { // indirect, idx y
                 let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
                 let result: u16 = self.a as u16 + read.0 as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ read.0)) & 0x80 != 0;
-                self.a = (result & 0xFF) as u8;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ read.0)) & 0x80 != 0;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ADC A,{:02X}", read.0);
                 self.step_pc(1);
                 
                 if read.1 {
@@ -158,62 +166,67 @@ impl Cpu {
             /*-------------------------------SBC-------------------------------------*/
             0xE9 => { // immediate
                 let result: u16 = self.a as u16 + !memory.read(self.pc) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(self.pc))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !memory.read(self.pc))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", memory.read(self.pc));
                 self.step_pc(1);
                 2
             }
             0xE5 => { // zero page
                 let address: u16 = memory.read(self.pc) as u16;
                 let result: u16 = self.a as u16 + !memory.read(address) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", memory.read(address));
                 self.step_pc(1);
                 3
             }
             0xF5 => { // zero page + x
                 let address: u16 = memory.read(self.pc).wrapping_add(self.x) as u16;
                 let result: u16 = self.a as u16 + !memory.read(address) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", memory.read(address));
                 self.step_pc(1);
                 4
             }
             0xED => {// absolute
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + !memory.read(address) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", memory.read(address));
                 self.step_pc(2);
                 4
             }
             0xFD => {// absolute + x
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + !memory.read(address + self.x as u16) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", memory.read(address + self.x as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -222,14 +235,15 @@ impl Cpu {
             0xF9 => {// absolute + y
                 let address: u16 = memory.read_u16(self.pc);
                 let result: u16 = self.a as u16 + !memory.read(address + self.y as u16) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read(address))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !memory.read(address))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", memory.read(address + self.y as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -237,23 +251,25 @@ impl Cpu {
             }
             0xE1 => { // indirect, x
                 let result: u16 = self.a as u16 + !memory.read_indirect_pre_index(memory.read(self.pc), self.x) as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !memory.read_indirect_pre_index(memory.read(self.pc), self.x))) & 0x80 != 0;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !memory.read_indirect_pre_index(memory.read(self.pc), self.x))) & 0x80 != 0;
 
-                self.a = (result & 0xFF) as u8;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", memory.read_indirect_pre_index(memory.read(self.pc), self.x));
                 self.step_pc(1);
                 6
             }
             0xF1 => { // indirect, idx y
                 let read: (u8, bool) = memory.read_indirect_post_index(memory.read(self.pc), self.y);
                 let result: u16 = self.a as u16 + !read.0 as u16 + self.flags.carry as u16;
-                self.flags.overflow = (((result & 0xFF) as u8 ^ self.a) & ((result & 0xFF) as u8 ^ !read.0)) & 0x80 != 0;
-                self.a = (result & 0xFF) as u8;
+                self.flags.overflow = (((result & 0xFF00) as u8 ^ self.a) & ((result & 0xFF00) as u8 ^ !read.0)) & 0x80 != 0;
+                self.a = (result & 0xFF00) as u8;
                 self.flags.carry = if result > 0xFF { 1 } else { 0 };
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("SBC A,{:02X}", read.0);
                 self.step_pc(1);
                 
                 if read.1 {
@@ -269,6 +285,7 @@ impl Cpu {
                 self.a &= memory.read(self.pc);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", memory.read(self.pc));
                 self.step_pc(1);
                 2
             }
@@ -277,6 +294,7 @@ impl Cpu {
                 self.a &= memory.read(address);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", memory.read(address));
                 self.step_pc(1);
                 3
             }
@@ -285,6 +303,7 @@ impl Cpu {
                 self.a &= memory.read(address);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", memory.read(address));
                 self.step_pc(1);
                 4
             }
@@ -292,6 +311,7 @@ impl Cpu {
                 self.a &= memory.read(memory.read_u16(self.pc));
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", memory.read(memory.read_u16(self.pc)));
                 self.step_pc(2);
                 4
             }
@@ -300,8 +320,9 @@ impl Cpu {
                 self.a &= memory.read(address + self.x as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", memory.read(address + self.x as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -312,8 +333,9 @@ impl Cpu {
                 self.a &= memory.read(address + self.y as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", memory.read(address + self.y as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -323,6 +345,7 @@ impl Cpu {
                 self.a &= memory.read_indirect_pre_index(memory.read(self.pc), self.x);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", memory.read_indirect_pre_index(memory.read(self.pc), self.x));
                 self.step_pc(1);
                 6
             }
@@ -331,6 +354,7 @@ impl Cpu {
                 self.a &= read.0;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("AND A,{:02X}", read.0);
                 self.step_pc(1);
                 
                 if read.1 {
@@ -347,6 +371,7 @@ impl Cpu {
                 self.a <<= 1;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ASL");
                 2
             }
             0x06 => { // zero page
@@ -357,6 +382,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ASL");
                 self.step_pc(1);
                 5
             }
@@ -368,6 +394,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ASL");
                 self.step_pc(1);
                 6
             }
@@ -379,6 +406,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ASL");
                 self.step_pc(2);
                 6
             }
@@ -390,6 +418,7 @@ impl Cpu {
                 memory.write(address + self.x as u16, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ASL");
                 self.step_pc(2);
                 7
             }
@@ -401,6 +430,7 @@ impl Cpu {
                 self.a >>= 1;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("LSR");
                 2
             }
             0x46 => { // zero page
@@ -411,6 +441,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("LSR");
                 self.step_pc(1);
                 5
             }
@@ -422,6 +453,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("LSR");
                 self.step_pc(1);
                 6
             }
@@ -433,6 +465,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("LSR");
                 self.step_pc(2);
                 6
             }
@@ -444,6 +477,7 @@ impl Cpu {
                 memory.write(address + self.x as u16, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("LSR");
                 self.step_pc(2);
                 7
             }
@@ -456,6 +490,7 @@ impl Cpu {
                 self.a |= self.flags.carry;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ROL");
                 2
             }
             0x26 => { // zero page
@@ -467,6 +502,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROL");
                 self.step_pc(1);
                 5
             }
@@ -479,6 +515,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROL");
                 self.step_pc(1);
                 6
             }
@@ -491,6 +528,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROL");
                 self.step_pc(2);
                 6
             }
@@ -503,6 +541,7 @@ impl Cpu {
                 memory.write(address + self.x as u16, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROL");
                 self.step_pc(2);
                 7
             }
@@ -515,6 +554,7 @@ impl Cpu {
                 self.a |= self.flags.carry << 7;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ROR");
                 2
             }
             0x66 => { // zero page
@@ -526,6 +566,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROR");
                 self.step_pc(1);
                 5
             }
@@ -538,6 +579,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROR");
                 self.step_pc(1);
                 6
             }
@@ -550,6 +592,7 @@ impl Cpu {
                 memory.write(address, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROR");
                 self.step_pc(2);
                 6
             }
@@ -562,6 +605,7 @@ impl Cpu {
                 memory.write(address + self.x as u16, data);
                 self.flags.negative = (data & 0b1000_0000) != 0;
                 self.flags.zero = data == 0;
+                println!("ROR");
                 self.step_pc(2);
                 7
             }
@@ -572,6 +616,7 @@ impl Cpu {
                 self.a |= memory.read(self.pc);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", memory.read(self.pc));
                 self.step_pc(1);
                 2
             }
@@ -580,6 +625,7 @@ impl Cpu {
                 self.a |= memory.read(address);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", memory.read(address));
                 self.step_pc(1);
                 3
             }
@@ -588,6 +634,7 @@ impl Cpu {
                 self.a |= memory.read(address);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", memory.read(address));
                 self.step_pc(1);
                 4
             }
@@ -595,6 +642,7 @@ impl Cpu {
                 self.a |= memory.read(memory.read_u16(self.pc));
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", memory.read(memory.read_u16(self.pc)));
                 self.step_pc(2);
                 4
             }
@@ -603,8 +651,9 @@ impl Cpu {
                 self.a |= memory.read(address + self.x as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", memory.read(address + self.x as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -615,8 +664,9 @@ impl Cpu {
                 self.a |= memory.read(address + self.y as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", memory.read(address + self.y as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -626,6 +676,7 @@ impl Cpu {
                 self.a |= memory.read_indirect_pre_index(memory.read(self.pc), self.x);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", memory.read_indirect_pre_index(memory.read(self.pc), self.x));
                 self.step_pc(1);
                 6
             }
@@ -634,6 +685,7 @@ impl Cpu {
                 self.a |= read.0;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("ORA 0x{:02X}", read.0);
                 self.step_pc(1);
                 
                 if read.1 {
@@ -650,6 +702,7 @@ impl Cpu {
                 self.a ^= memory.read(self.pc);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", memory.read(self.pc));
                 self.step_pc(1);
                 2
             }
@@ -658,6 +711,7 @@ impl Cpu {
                 self.a ^= memory.read(address);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", memory.read(address));
                 self.step_pc(1);
                 3
             }
@@ -666,6 +720,7 @@ impl Cpu {
                 self.a ^= memory.read(address);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", memory.read(address));
                 self.step_pc(1);
                 4
             }
@@ -673,6 +728,7 @@ impl Cpu {
                 self.a ^= memory.read(memory.read_u16(self.pc));
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", memory.read(memory.read_u16(self.pc)));
                 self.step_pc(2);
                 4
             }
@@ -681,8 +737,9 @@ impl Cpu {
                 self.a ^= memory.read(address + self.x as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", memory.read(address + self.x as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -693,8 +750,9 @@ impl Cpu {
                 self.a ^= memory.read(address + self.y as u16);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", memory.read(address + self.y as u16));
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -704,6 +762,7 @@ impl Cpu {
                 self.a ^= memory.read_indirect_pre_index(memory.read(self.pc), self.x);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", memory.read_indirect_pre_index(memory.read(self.pc), self.x));
                 self.step_pc(1);
                 6
             }
@@ -712,6 +771,7 @@ impl Cpu {
                 self.a ^= read.0;
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
+                println!("EOR 0x{:02X}", read.0);
                 self.step_pc(1);
                 
                 if read.1 {
@@ -722,6 +782,29 @@ impl Cpu {
             }
             /*-----------------------------------------------------------------------*/
 
+            /*--------------------------------BIT------------------------------------*/
+            0x24 => { // zero page
+                let address: u16 = memory.read(self.pc) as u16;
+                let oper: u8 = memory.read(address);
+                self.flags.negative = (oper & 0b1000_0000) >> 7 != 0;
+                self.flags.overflow = (oper & 0b0100_0000) >> 6 != 0;
+                self.flags.zero = (oper &  self.a) == 0;
+                println!("BIT 0x{:02X}", oper);
+                self.step_pc(1);
+                3
+            }
+
+            0x2C => { // absolute
+                let address: u16 = memory.read_u16(self.pc);
+                let oper: u8 = memory.read(address);
+                self.flags.negative = (oper & 0b1000_0000) >> 7 != 0;
+                self.flags.overflow = (oper & 0b0100_0000) >> 6 != 0;
+                self.flags.zero = (oper &  self.a) == 0;
+                println!("BIT 0x{:02X}", oper);
+                self.step_pc(2);
+                4
+            }
+            /*-----------------------------------------------------------------------*/
             
             /*-------------------------------INC M-----------------------------------*/
             0xE6 => { // zero page
@@ -833,24 +916,27 @@ impl Cpu {
             }
             /*-------------------------------JSR-------------------------------------*/
             0x20 => {
-                let return_address: u16 = self.pc.wrapping_add(2);
-                memory.write(self.sp as u16, ((return_address & 0xFF) >> 8) as u8);
-                memory.write((self.sp - 1) as u16, (return_address & 0x00FF) as u8);
+                let jump_addr: u16 = memory.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                println!("[Address 0x{:04X}]", self.pc);
                 self.sp = self.sp.wrapping_sub(2);
-                self.pc = memory.read_u16(self.pc);
+                memory.write_u16(self.sp as u16, self.pc);
+                self.pc = jump_addr;
+                println!("JSR 0x{:04X} [Return Address 0x{:04X}]", self.pc, memory.read_u16(self.sp as u16));
                 6
             }
             /*-------------------------------RTS-------------------------------------*/
             0x60 => {
-                self.pc = (memory.read(self.sp as u16) as u16) << 8 | memory.read((self.sp.wrapping_add(1)) as u16) as u16;
+                self.pc = memory.read_u16(self.sp as u16);
                 self.sp = self.sp.wrapping_add(2);
+                println!("RTS");
                 6
             }
             /*-----------------------------------------------------------------------*/
 
             /*-------------------------------PHA-------------------------------------*/
             0x48 => {
-                memory.write(self.sp as u16, self.a);
+                memory.write(self.sp.wrapping_sub(1) as u16, self.a);
                 self.sp = self.sp.wrapping_sub(1);
                 3
             }
@@ -859,22 +945,22 @@ impl Cpu {
                 let status_reg: u8 = if self.flags.negative { 1 << 7 } else { 0 << 7 } | if self.flags.overflow { 1 << 6 } else { 0 << 6 } | 1 << 5 | 1 << 4 |
                     if self.flags.decimal { 1 << 3 } else { 0 << 3 } | if self.flags.interrupt_disable { 1 << 2 } else { 0 << 2 } | if self.flags.zero { 1 << 1 } else { 0 << 1 } | self.flags.carry;
 
-                memory.write(self.sp as u16, status_reg);
+                memory.write(self.sp.wrapping_sub(1) as u16, status_reg);
                 self.sp = self.sp.wrapping_sub(1);
                 3
             }
             /*-------------------------------PLA-------------------------------------*/
             0x68 => {
-                self.sp = self.sp.wrapping_add(1);
                 self.a = memory.read(self.sp as u16);
+                self.sp = self.sp.wrapping_add(1);
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 4
             }
             /*-------------------------------PLP-------------------------------------*/
             0x28 => {
-                self.sp = self.sp.wrapping_add(1);
                 let status_reg: u8 = memory.read(self.sp as u16);
+                self.sp = self.sp.wrapping_add(1);
                 self.flags.negative = (status_reg & 0b1000_0000) >> 7 != 0;
                 self.flags.overflow = (status_reg & 0b0100_0000) >> 6 != 0;
                 self.flags.decimal = (status_reg & 0b0000_1000) >> 3 != 0;
@@ -943,11 +1029,11 @@ impl Cpu {
             }
             /*-------------------------------BNE-------------------------------------*/
             0xD0 => {
-                let start_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let start_page: u8 = ((self.pc & 0xFF00) >> 8) as u8;
                 let offset: u8  = memory.read(self.pc);
                 self.step_pc(1);
                 self.pc = if self.flags.zero == false { self.pc.wrapping_add(offset as u16) } else { self.pc };
-                let end_page: u8 = ((self.pc & 0x00FF) >> 8) as u8;
+                let end_page: u8 = ((self.pc & 0xFF00) >> 8) as u8;
 
                 if start_page == end_page { // if branch stays on current page
                     3
@@ -1118,7 +1204,7 @@ impl Cpu {
                     self.flags.negative = (res & 0b1000_0000) != 0;
                 }
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -1142,7 +1228,7 @@ impl Cpu {
                     self.flags.negative = (res & 0b1000_0000) != 0;
                 }
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -1365,7 +1451,7 @@ impl Cpu {
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -1377,7 +1463,7 @@ impl Cpu {
                 self.flags.negative = (self.a & 0b1000_0000) != 0;
                 self.flags.zero = self.a == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -1410,6 +1496,7 @@ impl Cpu {
                 self.x = memory.read(self.pc);
                 self.flags.negative = (self.x & 0b1000_0000) != 0;
                 self.flags.zero = self.x == 0;
+                println!("LDX #0x{:02X}", memory.read(self.pc));
                 self.step_pc(1);
                 2
             }
@@ -1442,7 +1529,7 @@ impl Cpu {
                 self.flags.negative = (self.x & 0b1000_0000) != 0;
                 self.flags.zero = self.x == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.y as u16) > 0xFF {
+                if (address & 0x00FF + self.y as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -1487,7 +1574,7 @@ impl Cpu {
                 self.flags.negative = (self.y & 0b1000_0000) != 0;
                 self.flags.zero = self.y == 0;
                 self.step_pc(2);
-                if (address & 0xFF + self.x as u16) > 0xFF {
+                if (address & 0x00FF + self.x as u16) > 0xFF {
                     5
                 } else{
                     4
@@ -1624,7 +1711,7 @@ impl Cpu {
             // NOP
             0xEA => 2,
             _ => {
-                println!("Unrecognized Opcode: {:02x}", opcode);
+                println!("Unrecognized Opcode: {:02X}", opcode);
                 2
             }
         }
